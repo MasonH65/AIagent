@@ -13,4 +13,4 @@ wheels/
 .env
 
 #misc
-lorem.txt
+*lorem.txt

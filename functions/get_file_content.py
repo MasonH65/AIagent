@@ -4,7 +4,7 @@ from config import FILE_CHAR_LIMIT
 def get_file_content(working_directory, file_path):
     base_dir = os.path.abspath(working_directory)
     full_path = os.path.abspath(os.path.join(base_dir, file_path))
-    if full_path.startswith(base_dir) == False:
+    if os.path.commonpath([base_dir, full_path]) != base_dir:
         return f'Error: Cannot read "{file_path}" as it is outside the permitted working directory'
     if os.path.isfile(full_path) == False:
         return f'Error: File not found or is not a regular file: "{file_path}"'

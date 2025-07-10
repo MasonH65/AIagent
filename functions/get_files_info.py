@@ -4,7 +4,7 @@ def get_files_info(working_directory, directory=None):
     base_dir = os.path.abspath(working_directory)
     full_path = os.path.abspath(os.path.join(base_dir, directory))
     dir_results = []
-    if  full_path.startswith(base_dir) == False:
+    if  os.path.commonpath([base_dir, full_path]) != base_dir:
         return f'Error: Cannot list "{directory}" as it is outside the permitted working directory'
     if os.path.isdir(full_path) == False:
         return f'Error: "{directory}" is not a directory'
