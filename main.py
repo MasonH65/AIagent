@@ -17,7 +17,10 @@ prompt = sys.argv[1]
 load_dotenv()
 api_key = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
-messages = [types.Content(role='user', parts=[types.Part(text=prompt)])]
+messages = [types.Content(
+    role='user', 
+    parts=[types.Part(text=prompt)]
+    )]
 
 available_functions = types.Tool(
     function_declarations=[
@@ -70,15 +73,6 @@ def call_function(function_call_part, verbose):
 def main():
     verbose = False
 
-    response = client.models.generate_content(
-        model='gemini-2.0-flash-001', 
-        contents=messages, 
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            tools=[available_functions],
-            ),
-        )
-    
     if len(sys.argv) == 3:
         if sys.argv[2] == '--verbose':
             print(f'User prompt: {prompt}')
@@ -86,19 +80,34 @@ def main():
             print(f'Response tokens: {response.usage_metadata.candidates_token_count}')
             verbose = True
 
-    if response.function_calls:
-        for function_call_part in response.function_calls:
-            try:
-                result = call_function(function_call_part, verbose)
-                if not result.parts or not hasattr(result.parts[0], 'function_response'):
-                    raise Exception('Invalid function response structure')
-                if verbose:
-                    print(f"-> {result.parts[0].function_response.response}")
-            except Exception as e:
-                print(f'Error: {e}')
-
-    else:
-        print(response.text)
+    try:
+        for i in range(20):
+            response = client.models.generate_content(
+                model='gemini-2.0-flash-001', 
+                contents=messages, 
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_PROMPT,
+                    tools=[available_functions],
+                    ),
+                )
+            for content in response.candidates:
+                messages.append(content.content)
+            if response.function_calls:
+                for function_call_part in response.function_calls:
+                    try:
+                        result = call_function(function_call_part, verbose)
+                        if not result.parts or not hasattr(result.parts[0], 'function_response'):
+                            raise Exception('Invalid function response structure')
+                        if verbose:
+                            print(f"-> {result.parts[0].function_response.response}")
+                    except Exception as e:
+                        print(f'Error: {e}')
+                    messages.append(result)
+            if response.text:
+                print(response.text)
+                break
+    except Exception as e:
+        return f'Error: {e}'
 
 if __name__ == "__main__":
     main()
