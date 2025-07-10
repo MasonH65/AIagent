@@ -1,5 +1,6 @@
 import os
-from config import FILE_CHAR_LIMIT
+from config import *
+from google.genai import types
 
 def get_file_content(working_directory, file_path):
     base_dir = os.path.abspath(working_directory)
@@ -18,4 +19,17 @@ def get_file_content(working_directory, file_path):
                     return truncated_file_content
         except Exception as e:
             return f'Error: {e}'
-        
+
+schema_get_file_content = types.FunctionDeclaration(
+    name="get_file_content",
+    description="Prints content of a file, if over 10000 character it truncates",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "file_path": types.Schema(
+                type=types.Type.STRING,
+                description="The directory to read files from, relative to the working directory. If not provided, read files in the working directory itself.",
+            ),
+        },
+    ),
+)        
