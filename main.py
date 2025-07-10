@@ -4,10 +4,10 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from config import *
-from functions.get_files_info import schema_get_files_info
-from functions.get_file_content import schema_get_file_content
-from functions.write_file import schema_write_file
-from functions.run_python import schema_run_python_file
+from functions.get_files_info import *
+from functions.get_file_content import *
+from functions.write_file import *
+from functions.run_python import *
 
 if len(sys.argv) < 2 or len(sys.argv) > 3:
     print("Usage: uv run main.py <prompt> <optional --verbose>")
@@ -28,7 +28,48 @@ available_functions = types.Tool(
     ]
 )
 
+functions = {
+    'get_files_info': get_files_info,
+    'get_file_content': get_file_content,
+    'write_file': write_file,
+    'run_python_file': run_python_file,
+}
+
+def call_function(function_call_part, verbose):
+    args = function_call_part.args or {}
+    args['working_directory'] = "./calculator"
+    
+    if verbose:
+        print(f"Calling function: {function_call_part.name}({args})")
+    else:
+        print(f" - Calling function: {function_call_part.name}")
+
+    if function_call_part.name in functions:
+        function_to_call = functions[function_call_part.name]
+        result = function_to_call(**args)
+        return types.Content(
+            role="tool",
+            parts=[
+                types.Part.from_function_response(
+                    name=function_call_part.name,
+                    response={"result": result},
+                )
+            ],
+        )
+    else:
+        return types.Content(
+            role="tool",
+            parts=[
+                types.Part.from_function_response(
+                    name=function_call_part.name,
+                    response={"error": f"Unknown function: {function_call_part.name}"},
+                )
+            ],
+        )
+    
 def main():
+    verbose = False
+
     response = client.models.generate_content(
         model='gemini-2.0-flash-001', 
         contents=messages, 
@@ -37,17 +78,27 @@ def main():
             tools=[available_functions],
             ),
         )
-    if response.function_calls:
-        for function_call_part in response.function_calls:
-            print(f"Calling function: {function_call_part.name}({function_call_part.args})")
-    else:
-        print(response.text)
-
+    
     if len(sys.argv) == 3:
         if sys.argv[2] == '--verbose':
             print(f'User prompt: {prompt}')
             print(f'Prompt tokens: {response.usage_metadata.prompt_token_count}')
             print(f'Response tokens: {response.usage_metadata.candidates_token_count}')
+            verbose = True
+
+    if response.function_calls:
+        for function_call_part in response.function_calls:
+            try:
+                result = call_function(function_call_part, verbose)
+                if not result.parts or not hasattr(result.parts[0], 'function_response'):
+                    raise Exception('Invalid function response structure')
+                if verbose:
+                    print(f"-> {result.parts[0].function_response.response}")
+            except Exception as e:
+                print(f'Error: {e}')
+
+    else:
+        print(response.text)
 
 if __name__ == "__main__":
     main()
